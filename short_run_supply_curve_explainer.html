@@ -1,0 +1,166 @@
+
+<style>
+  body { font-family: var(--font-sans); }
+  .wrap { padding: 1rem 0; }
+  canvas { display: block; }
+  .legend { display: flex; gap: 20px; flex-wrap: wrap; margin: 10px 0 0; }
+  .leg { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--color-text-secondary); }
+  .dot { width: 18px; height: 3px; border-radius: 2px; }
+  .info { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 10px 14px; font-size: 13px; color: var(--color-text-secondary); margin: 12px 0 0; line-height: 1.6; }
+  .info strong { color: var(--color-text-primary); font-weight: 500; }
+  .price-row { display: flex; align-items: center; gap: 12px; margin: 14px 0 0; font-size: 13px; color: var(--color-text-secondary); }
+  .price-row input { flex: 1; }
+  .price-val { font-size: 16px; font-weight: 500; color: var(--color-text-primary); min-width: 28px; }
+  .q-out { font-size: 13px; color: var(--color-text-secondary); }
+  .supply-box { margin-top: 14px; background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 12px 16px; display: flex; gap: 20px; flex-wrap: wrap; }
+  .sb { flex: 1; min-width: 120px; }
+  .sb-label { font-size: 11px; color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
+  .sb-val { font-size: 18px; font-weight: 500; color: var(--color-text-primary); }
+  .rule-card { margin-top: 14px; border-left: 2px solid #1D9E75; border-radius: 0; padding: 10px 14px; background: #E1F5EE; }
+  .rule-card p { margin: 0; font-size: 13px; color: #085041; line-height: 1.6; }
+</style>
+<div class="wrap">
+  <canvas id="c" width="640" height="320"></canvas>
+  <div class="legend">
+    <div class="leg"><div class="dot" style="background:#378ADD"></div> Marginal cost (MC = q)</div>
+    <div class="leg"><div class="dot" style="background:#D85A30"></div> Average variable cost (AVC = ½q)</div>
+    <div class="leg"><div class="dot" style="background:#639922"></div> Average total cost (ATC = 50/q + ½q)</div>
+    <div class="leg"><div class="dot" style="background:#7F77DD; height:3px; border-top: 2px dashed #7F77DD; background: none;"></div><span style="color:var(--color-text-secondary);font-size:12px">Market price (P)</span></div>
+  </div>
+  <div class="price-row">
+    <span>Set market price P =</span>
+    <input type="range" id="pslider" min="1" max="15" step="1" value="7">
+    <span class="price-val" id="pval">7</span>
+  </div>
+  <div class="supply-box">
+    <div class="sb"><div class="sb-label">Market price</div><div class="sb-val" id="s-p">7</div></div>
+    <div class="sb"><div class="sb-label">Firm produces</div><div class="sb-val" id="s-q">q = 7</div></div>
+    <div class="sb"><div class="sb-label">AVC at this q</div><div class="sb-val" id="s-avc">3.5</div></div>
+    <div class="sb"><div class="sb-label">Produce?</div><div class="sb-val" id="s-dec" style="color:#1D9E75">Yes</div></div>
+  </div>
+  <div class="rule-card">
+    <p id="rule-text">At P = 7, the firm supplies q = 7. Since P (7) > AVC (3.5), the firm covers variable costs and stays open.</p>
+  </div>
+</div>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = 640, H = 320;
+const PAD = { l: 48, r: 20, t: 20, b: 36 };
+const qMin = 0, qMax = 15, pMin = 0, pMax = 16;
+function toX(q) { return PAD.l + (q - qMin) / (qMax - qMin) * (W - PAD.l - PAD.r); }
+function toY(p) { return PAD.t + (1 - (p - pMin) / (pMax - pMin)) * (H - PAD.t - PAD.b); }
+
+const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+const textCol = isDark ? '#c2c0b6' : '#3d3d3a';
+const gridCol = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)';
+const axisCol = isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.2)';
+
+function draw(P) {
+  ctx.clearRect(0, 0, W, H);
+  ctx.font = '11px sans-serif';
+  ctx.fillStyle = textCol;
+
+  // Grid
+  for (let p = 0; p <= 15; p += 5) {
+    const y = toY(p);
+    ctx.beginPath(); ctx.strokeStyle = gridCol; ctx.lineWidth = 0.5;
+    ctx.moveTo(PAD.l, y); ctx.lineTo(W - PAD.r, y); ctx.stroke();
+    ctx.fillStyle = textCol; ctx.textAlign = 'right';
+    ctx.fillText(p, PAD.l - 6, y + 4);
+  }
+  for (let q = 0; q <= 15; q += 5) {
+    const x = toX(q);
+    ctx.beginPath(); ctx.strokeStyle = gridCol; ctx.lineWidth = 0.5;
+    ctx.moveTo(x, PAD.t); ctx.lineTo(x, H - PAD.b); ctx.stroke();
+    ctx.fillStyle = textCol; ctx.textAlign = 'center';
+    ctx.fillText(q, x, H - PAD.b + 14);
+  }
+
+  // Axes
+  ctx.beginPath(); ctx.strokeStyle = axisCol; ctx.lineWidth = 1;
+  ctx.moveTo(PAD.l, PAD.t); ctx.lineTo(PAD.l, H - PAD.b);
+  ctx.lineTo(W - PAD.r, H - PAD.b); ctx.stroke();
+  ctx.fillStyle = textCol;
+  ctx.save(); ctx.translate(13, H/2); ctx.rotate(-Math.PI/2);
+  ctx.textAlign = 'center'; ctx.fillText('Price / Cost', 0, 0); ctx.restore();
+  ctx.textAlign = 'center'; ctx.fillText('Quantity (q)', W/2, H - 4);
+
+  // Shade supply region (MC above AVC — the whole curve for this model)
+  ctx.beginPath();
+  ctx.moveTo(toX(0), toY(0));
+  for (let q = 0; q <= 15; q += 0.1) ctx.lineTo(toX(q), toY(q));
+  ctx.lineTo(toX(15), toY(0)); ctx.closePath();
+  ctx.fillStyle = 'rgba(55,138,221,0.07)';
+  ctx.fill();
+
+  // ATC curve
+  ctx.beginPath(); ctx.strokeStyle = '#639922'; ctx.lineWidth = 2; ctx.setLineDash([]);
+  for (let q = 1; q <= 15; q += 0.1) {
+    const atc = 50/q + 0.5*q;
+    if (atc > pMax) continue;
+    q === 1 ? ctx.moveTo(toX(q), toY(atc)) : ctx.lineTo(toX(q), toY(atc));
+  }
+  ctx.stroke();
+
+  // AVC curve (straight line)
+  ctx.beginPath(); ctx.strokeStyle = '#D85A30'; ctx.lineWidth = 2;
+  ctx.moveTo(toX(0), toY(0)); ctx.lineTo(toX(15), toY(7.5)); ctx.stroke();
+
+  // MC curve (straight line)
+  ctx.beginPath(); ctx.strokeStyle = '#378ADD'; ctx.lineWidth = 2.5;
+  ctx.moveTo(toX(0), toY(0)); ctx.lineTo(toX(15), toY(15)); ctx.stroke();
+
+  // Highlight supply portion of MC
+  ctx.beginPath(); ctx.strokeStyle = '#378ADD'; ctx.lineWidth = 4; ctx.globalAlpha = 0.25;
+  ctx.moveTo(toX(0), toY(0)); ctx.lineTo(toX(15), toY(15)); ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  // Price line
+  ctx.beginPath(); ctx.strokeStyle = '#7F77DD'; ctx.lineWidth = 1.5; ctx.setLineDash([6,4]);
+  ctx.moveTo(PAD.l, toY(P)); ctx.lineTo(W - PAD.r, toY(P)); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Dot at (P, P) on MC = supply curve
+  const qStar = P;
+  if (qStar >= 0 && qStar <= 15) {
+    ctx.beginPath();
+    ctx.arc(toX(qStar), toY(P), 6, 0, 2*Math.PI);
+    ctx.fillStyle = '#7F77DD'; ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+  }
+
+  // Labels on curves (right end)
+  ctx.font = '11px sans-serif'; ctx.fillStyle = '#378ADD'; ctx.textAlign = 'left';
+  ctx.fillText('MC', toX(14.5) + 4, toY(14.5) + 4);
+  ctx.fillStyle = '#D85A30';
+  ctx.fillText('AVC', toX(14.5) + 4, toY(7.25) + 4);
+  ctx.fillStyle = '#639922';
+  const atcEnd = 50/15 + 7.5;
+  ctx.fillText('ATC', toX(14.5) + 4, toY(atcEnd) + 4);
+}
+
+function update() {
+  const P = parseInt(document.getElementById('pslider').value);
+  document.getElementById('pval').textContent = P;
+  document.getElementById('s-p').textContent = P;
+  document.getElementById('s-q').textContent = 'q = ' + P;
+  const avc = (0.5 * P).toFixed(1);
+  document.getElementById('s-avc').textContent = avc;
+  const produces = P >= 0;
+  document.getElementById('s-dec').textContent = produces ? 'Yes' : 'No';
+  document.getElementById('s-dec').style.color = produces ? '#1D9E75' : '#A32D2D';
+
+  let ruleText;
+  if (P === 0) {
+    ruleText = 'At P = 0, the firm produces nothing. No point producing when price is zero.';
+  } else {
+    ruleText = `At P = ${P}, the firm supplies q = ${P}. Since P (${P}) > AVC (${avc}), the firm covers its variable costs and stays open in the short run. The firm sets price = MC, so ${P} = q.`;
+  }
+  document.getElementById('rule-text').textContent = ruleText;
+  draw(P);
+}
+
+document.getElementById('pslider').addEventListener('input', update);
+update();
+</script>
